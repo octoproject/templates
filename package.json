@@ -1,0 +1,18 @@
+{
+  "name": "function",
+  "version": "1.0.0",
+  "description": "",
+  "main": "handler.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "basic-auth": "^2.0.1",
+    "crypto": "^1.0.1",
+    "mssql": "^6.0.1",
+    "pg": "^7.17.1",
+    "pq": "0.0.3",
+    "sequelize": "^5.21.3",
+    "tedious": "^8.0.1"
+  }
+}

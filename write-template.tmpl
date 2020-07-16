@@ -1,0 +1,108 @@
+"use strict"
+
+const Sequelize = require('sequelize');
+const config = {
+    "username": process.env.DB_USER,
+    "password": process.env.DB_PASSWORD,
+    "database": process.env.DB_NAME,
+    "host": process.env.DB_HOST,
+    "dialect": process.env.DB_DIALECT,
+    "port": process.env.DB_PORT,
+    "timeout":  process.env.DB_TIMEOUT,
+
+};
+
+module.exports = async (event, context, callback) => {
+    const conditionsArray = [
+        isEmpty(config.database), 
+        isEmpty(config.username), 
+        isEmpty(config.password), 
+        isEmpty(config.host), 
+        isEmpty(config.port), 
+        isEmpty(config.dialect)
+    ]
+
+    if (conditionsArray.includes(true)) {
+        return context
+            .status(400)
+            .headers({"Content-Type": "application/json"})
+            .succeed({"message": "one of the DB configurations is empty"});
+    }
+
+    const client = new Sequelize(
+            config.database,
+            config.username,
+            config.password,
+            {
+            host: config.host,
+            port: config.port,
+            dialect: config.dialect,
+            dialectOptions: {
+                options: { requestTimeout: Number(config.timeout) }
+            }
+        });
+
+
+    try {
+        await client.sync({ force: true }).then(() => {
+            console.log("Connected successfully")
+          })
+     } catch (err) {
+        console.log("caught", err.message);
+        return context
+            .status(500)
+            .headers({"Content-Type": "application/json"})
+            .succeed({"message": err.message});
+     }
+    
+    console.log("check url params")   
+    {{- $combine := ""}}
+    {{- $datatype := .Params.Type}}
+    {{- range $key, $value := .Params.Schema }}
+    {{- range $key, $value := $value }}
+    {{- $data := (printf "event.query.%s" $key) }}
+    {{- if  eq $datatype "body" }}   
+    {{- $data = (printf "event.body.%s" $key) }}
+    {{- end}}
+    {{- if $value.Required  }}
+        if (!{{($data)}}) {
+        return context
+            .status(400)
+            .headers({"Content-Type": "application/json"})
+            .succeed({"message": "{{$key}} is required"});
+        }
+    {{-  else if eq $value.Type  "string" }}   
+     if (!{{($data)}}) {
+            {{ (printf "%s = '%s'"  $data $value.DefaultValue) }}
+        }
+    {{ else }}
+        if (!{{($data)}}) {
+            {{ (printf "%s = %s"  $data $value.DefaultValue) }}
+        }
+    {{ end  }}
+    {{- $combine = (printf "%s %s," $combine $data) }}
+    {{- end}}
+    {{- end}}
+
+
+    let result
+    try {
+    result = await client.query("{{.Query}}", {
+        type: client.QueryTypes.INSERT,
+        bind: [{{$combine}}],
+    });
+    } catch (error) {
+    console.log("caught", error.message);
+    return context
+           .status(500)
+            .headers({"Content-Type": "application/json"})
+           .succeed({"message": error.message});
+    }
+    return context
+        .status(201)
+        .succeed()
+}
+
+function isEmpty(value){
+    return (value == undefined || value === "");
+}
