@@ -37,7 +37,7 @@ module.exports = async (event, context, callback) => {
             port: config.port,
             dialect: config.dialect,
             dialectOptions: {
-                options: { requestTimeout: Number(config.timeout) }
+                connectTimeout: Number(config.timeout)
             }
         });
 
